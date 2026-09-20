@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>كوبون لإرضاء الزبون - تنورك</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1c1815;
+    --surface:#26211d;
+    --surface-2:#302a24;
+    --line:#40382f;
+    --text:#f2ece2;
+    --muted:#a89a89;
+    --accent:#c6553c;
+    --accent-2:#d4a24c;
+    --good:#7fa06f;
+    --danger:#c65050;
+    --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:'Tajawal','Segoe UI',Tahoma,Arial,sans-serif;
+    min-height:100vh;-webkit-tap-highlight-color:transparent;
+  }
+  #app{max-width:480px;margin:0 auto;padding:24px 18px 60px;min-height:100vh;}
+  .logo-badge{
+    width:96px;height:96px;border-radius:50%;margin:0 auto 12px;
+    background:linear-gradient(155deg, var(--accent-2), var(--accent) 70%);
+    display:flex;align-items:center;justify-content:center;
+    font-size:34px;font-weight:900;color:#1c1815;
+    box-shadow:0 10px 26px rgba(0,0,0,0.4);
+  }
+  h1{font-size:22px;text-align:center;margin:0 0 4px;font-weight:900;}
+  .brand-sub{text-align:center;color:var(--muted);font-size:13px;margin:0 0 22px;}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:0 8px 22px rgba(0,0,0,0.25);}
+  .apology-title{font-size:19px;font-weight:900;color:var(--accent-2);text-align:center;margin:0 0 8px;}
+  .apology-text{font-size:14px;color:var(--muted);text-align:center;line-height:1.9;margin:0 0 4px;}
+  h2{font-size:15px;font-weight:800;margin:0 0 12px;color:var(--text);}
+  .items-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:6px;}
+  .item-option{
+    display:flex;align-items:center;gap:12px;
+    background:var(--surface-2);border:2px solid var(--line);border-radius:12px;
+    padding:14px 16px;cursor:pointer;transition:border-color .2s, background .2s;
+  }
+  .item-option.selected{border-color:var(--accent-2);background:rgba(212,162,76,0.12);}
+  .item-radio{
+    width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .item-option.selected .item-radio{border-color:var(--accent-2);}
+  .item-radio-dot{width:11px;height:11px;border-radius:50%;background:var(--accent-2);display:none;}
+  .item-option.selected .item-radio-dot{display:block;}
+  .item-label{font-size:15px;font-weight:700;}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:700;}
+  input{
+    width:100%;background:var(--surface-2);border:1px solid var(--line);color:#fff;
+    -webkit-text-fill-color:#fff;
+    padding:14px;border-radius:10px;font-size:16px;margin-bottom:14px;font-family:inherit;
+  }
+  input::placeholder{color:var(--muted);opacity:1;-webkit-text-fill-color:var(--muted);}
+  button.submit-btn{
+    width:100%;padding:16px;border-radius:12px;border:none;background:var(--accent);
+    color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:inherit;
+  }
+  button.submit-btn:disabled{opacity:0.5;}
+  .msg{font-size:13px;padding:10px 12px;border-radius:10px;margin-bottom:14px;text-align:center;font-weight:700;}
+  .msg-error{background:rgba(198,80,80,0.15);color:#e08a8a;border:1px solid rgba(198,80,80,0.35);}
+  .success-screen{text-align:center;padding:20px 0;}
+  .success-icon{font-size:56px;margin-bottom:10px;}
+  .success-title{font-size:20px;font-weight:900;color:var(--good);margin:0 0 8px;}
+  .success-text{font-size:14px;color:var(--muted);line-height:1.9;margin:0 0 18px;}
+  .coupon-code{
+    background:var(--surface-2);border:2px dashed var(--accent-2);border-radius:12px;
+    padding:16px;font-size:22px;font-weight:900;letter-spacing:3px;color:var(--accent-2);
+    margin-bottom:18px;
+  }
+  footer{text-align:center;color:var(--muted);font-size:11.5px;margin-top:20px;line-height:1.8;}
+</style>
+</head>
+<body>
+<div id="app"><div style="text-align:center;padding:60px 0;">جارِ التحميل...</div></div>
+
+<script>
+function showFatalError(msg){
+  var app = document.getElementById('app');
+  if(app && !app.dataset.rendered){
+    app.innerHTML = '<div style="padding:20px;color:#fff;font-family:sans-serif;direction:ltr;text-align:left;">'+
+      '<h2 style="color:#e08a8a;">Loading error</h2>'+
+      '<p style="font-size:13px;word-break:break-word;">'+ msg +'</p>'+
+      '<p style="font-size:12px;color:#a89a89;">Please check your internet connection and reload the page.</p>'+
+    '</div>';
+  }
+}
+window.addEventListener('error', function(e){ showFatalError(e.message || 'Unknown error'); });
+window.addEventListener('unhandledrejection', function(e){ showFatalError('Promise error: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)); });
+</script>
+<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" crossorigin="anonymous"></script>
+<script>
+const SUPABASE_URL = 'https://iekotptltmkjmieauhqc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_35u5V1apSr2-DCpjp8ltmg_gIJzhXEN';
+let supabase;
+try{
+  if(!window.supabase) throw new Error('Supabase library object not found on window after script load');
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}catch(err){
+  showFatalError('Supabase init failed: ' + (err && err.message ? err.message : err));
+  throw err;
+}
+
+const ITEMS_KEY = 'coupon_items';
+const RESTAURANT_WHATSAPP = '971500888917';
+
+async function settingsGet(key){
+  try{
+    const { data, error } = await supabase.from('settings').select('value').eq('key', key).maybeSingle();
+    if(error || !data) return null;
+    return data.value;
+  }catch(e){ return null; }
+}
+async function settingsSet(key, value){
+  try{ await supabase.from('settings').upsert({ key, value }); return true; }catch(e){ return false; }
+}
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function pad(n){ return String(n).padStart(2,'0'); }
+function nowTimeLabel(){
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())} - ${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+}
+function todayISO(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function defaultItems(){
+  return ['حلى مجاني','مشروب مجاني','خبز إضافي مجاني','سلطة مجانية','خصم 20% على الفاتورة القادمة','وجبة إضافية مجانية بزيارتك القادمة'];
+}
+function genCouponCode(){
+  return 'TNK-' + Math.random().toString(36).slice(2,7).toUpperCase();
+}
+
+let state = { items: [], selected: null, name: '', phone: '', loading: true, submitting:false, message: null, submitted: false, couponCode: '' };
+
+async function init(){
+  let items = await settingsGet(ITEMS_KEY);
+  if(!items || !Array.isArray(items) || items.length === 0){
+    items = defaultItems();
+    await settingsSet(ITEMS_KEY, items);
+  }
+  state.items = items;
+  state.loading = false;
+  render();
+}
+
+function selectItem(item){
+  state.selected = item;
+  render();
+}
+
+async function submitCoupon(){
+  if(!state.selected){ state.message = 'اختر أحد الخيارات أولاً'; render(); return; }
+  if(!state.name.trim()){ state.message = 'اكتب اسمك الكامل'; render(); return; }
+  if(!state.phone.trim()){ state.message = 'اكتب رقم جوالك'; render(); return; }
+  state.message = null;
+  state.submitting = true;
+  render();
+
+  const code = genCouponCode();
+  const row = {
+    id: uid(),
+    item_id: code,
+    item_name: state.selected,
+    item_name_en: state.phone.trim(),
+    type: 'coupon',
+    qty: 0,
+    unit: null,
+    unit_num: null,
+    user_name: state.name.trim(),
+    time_label: nowTimeLabel(),
+    raw_date: todayISO()
+  };
+  try{
+    await supabase.from('logs').insert(row);
+  }catch(e){}
+
+  state.submitting = false;
+  state.submitted = true;
+  state.couponCode = code;
+  render();
+}
+
+function sendWhatsappNotice(){
+  const text = `كوبون جديد لإرضاء زبون\nالاسم: ${state.name}\nالجوال: ${state.phone}\nالصنف المختار: ${state.selected}\nكود الكوبون: ${state.couponCode}\nالوقت: ${nowTimeLabel()}`;
+  window.open('https://wa.me/' + RESTAURANT_WHATSAPP + '?text=' + encodeURIComponent(text), '_blank');
+}
+
+function App(){
+  const app = document.getElementById('app');
+  app.dataset.rendered = '1';
+
+  if(state.loading){
+    app.innerHTML = '<div style="text-align:center;padding:60px 0;">جارِ التحميل...</div>';
+    return;
+  }
+
+  if(state.submitted){
+    app.innerHTML = `
+      <div class="logo-badge">تن</div>
+      <h1>تنورك</h1>
+      <p class="brand-sub">مطعم ومطبخ تنوركو</p>
+      <div class="card success-screen">
+        <div class="success-icon">🎉</div>
+        <div class="success-title">تم تسجيل الكوبون بنجاح</div>
+        <p class="success-text">شكرًا لك ${state.name}، وريحمنا كثيرًا نعتذر عن أي تقصير.<br>أرِ فريق المطعم هذا الكود لاستلام:<br><b>${state.selected}</b></p>
+        <div class="coupon-code">${state.couponCode}</div>
+        <button class="submit-btn" id="notify-btn">📲 إشعار المطعم عبر واتساب</button>
+      </div>
+      <footer>مطعم ومطبخ تنوركو — العين، الإمارات</footer>
+    `;
+    document.getElementById('notify-btn').onclick = sendWhatsappNotice;
+    return;
+  }
+
+  app.innerHTML = `
+    <div class="logo-badge">تن</div>
+    <h1>تنورك</h1>
+    <p class="brand-sub">مطعم ومطبخ تنوركو</p>
+    <div class="card">
+      <div class="apology-title">🎁 كوبون لإرضاء الزبون</div>
+      <p class="apology-text">نعتذر إذا لم تكن الوجبة بالمستوى اللي نطمح له. اختر لك هدية من فوالتنا:</p>
+    </div>
+    <div class="card">
+      <h2>اختر الهدية</h2>
+      ${state.message ? `<div class="msg msg-error">${state.message}</div>` : ''}
+      <div class="items-grid" id="items-grid"></div>
+    </div>
+    <div class="card">
+      <h2>بياناتك</h2>
+      <label>الاسم الكامل</label>
+      <input type="text" id="name-input" placeholder="اكتب اسمك الكامل" value="${state.name.replace(/"/g,'&quot;')}">
+      <label>رقم الجوال</label>
+      <input type="tel" id="phone-input" placeholder="05xxxxxxxx" value="${state.phone.replace(/"/g,'&quot;')}">
+      <button class="submit-btn" id="submit-btn" ${state.submitting ? 'disabled' : ''}>${state.submitting ? 'جارِ الإرسال...' : 'إرسال الكوبون'}</button>
+    </div>
+    <footer>مطعم ومطبخ تنوركو — العين، الإمارات</footer>
+  `;
+
+  const grid = document.getElementById('items-grid');
+  state.items.forEach(item=>{
+    const opt = document.createElement('div');
+    opt.className = 'item-option' + (state.selected===item ? ' selected' : '');
+    opt.innerHTML = `<div class="item-radio"><div class="item-radio-dot"></div></div><div class="item-label">${item}</div>`;
+    opt.onclick = ()=> selectItem(item);
+    grid.appendChild(opt);
+  });
+
+  document.getElementById('name-input').oninput = (e)=>{ state.name = e.target.value; };
+  document.getElementById('phone-input').oninput = (e)=>{ state.phone = e.target.value; };
+  document.getElementById('submit-btn').onclick = submitCoupon;
+}
+
+function render(){ App(); }
+
+init().catch(function(err){ showFatalError('Init failed: ' + (err && err.message ? err.message : err)); });
+</script>
+</body>
+</html>
