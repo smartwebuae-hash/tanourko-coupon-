@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>إدارة كوبونات إرضاء الزبون - تنورك</title>
+<style>
+  :root{
+    --bg:#1c1815;--surface:#26211d;--surface-2:#302a24;--line:#40382f;
+    --text:#f2ece2;--muted:#a89a89;--accent:#c6553c;--accent-2:#d4a24c;
+    --good:#7fa06f;--danger:#c65050;--radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Segoe UI',Tahoma,Arial,sans-serif;min-height:100vh;}
+  #app{max-width:640px;margin:0 auto;padding:18px 16px 60px;}
+  h1{font-size:20px;margin:0 0 4px;font-weight:800;}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 18px;}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
+  input{
+    width:100%;background:var(--surface-2);border:1px solid var(--line);color:#fff;
+    -webkit-text-fill-color:#fff;padding:12px;border-radius:10px;font-size:15px;margin-bottom:10px;font-family:inherit;
+  }
+  input::placeholder{color:var(--muted);-webkit-text-fill-color:var(--muted);}
+  button{padding:12px 16px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
+  .btn-primary{width:100%;background:var(--accent);color:#fff;}
+  .btn-ghost{background:var(--surface-2);border:1px solid var(--line);color:var(--text);}
+  .tabs{display:flex;gap:6px;margin-bottom:16px;}
+  .tab{flex:1;text-align:center;padding:11px 4px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .item-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);}
+  .item-row:last-child{border-bottom:none;}
+  .log-entry{padding:10px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .log-entry:last-child{border-bottom:none;}
+  .log-meta{color:var(--muted);font-size:11.5px;margin-top:2px;}
+  .empty{color:var(--muted);text-align:center;padding:20px 0;font-size:13px;}
+  .msg{font-size:13px;padding:10px 12px;border-radius:10px;margin-bottom:12px;}
+  .msg-error{background:rgba(198,80,80,0.15);color:#e08a8a;border:1px solid rgba(198,80,80,0.35);}
+  .msg-success{background:rgba(127,160,111,0.15);color:#a8cf9a;border:1px solid rgba(127,160,111,0.35);}
+  .center-screen{display:flex;flex-direction:column;justify-content:center;min-height:70vh;}
+  .logout{color:var(--muted);font-size:13px;background:none;border:none;padding:6px;text-decoration:underline;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="app"><div style="text-align:center;padding:60px 0;">جارِ التحميل...</div></div>
+
+<script>
+function showFatalError(msg){
+  var app = document.getElementById('app');
+  if(app && !app.dataset.rendered){
+    app.innerHTML = '<div style="padding:20px;color:#fff;font-family:sans-serif;direction:ltr;text-align:left;">'+
+      '<h2 style="color:#e08a8a;">Loading error</h2>'+
+      '<p style="font-size:13px;word-break:break-word;">'+ msg +'</p>'+
+      '<p style="font-size:12px;color:#a89a89;">Please check your internet connection and reload the page.</p>'+
+    '</div>';
+  }
+}
+window.addEventListener('error', function(e){ showFatalError(e.message || 'Unknown error'); });
+window.addEventListener('unhandledrejection', function(e){ showFatalError('Promise error: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)); });
+</script>
+<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" crossorigin="anonymous"></script>
+<script>
+const SUPABASE_URL = 'https://iekotptltmkjmieauhqc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_35u5V1apSr2-DCpjp8ltmg_gIJzhXEN';
+let supabase;
+try{
+  if(!window.supabase) throw new Error('Supabase library object not found on window after script load');
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}catch(err){
+  showFatalError('Supabase init failed: ' + (err && err.message ? err.message : err));
+  throw err;
+}
+
+const ITEMS_KEY = 'coupon_items';
+const PASS_KEY = 'coupon_admin_pass';
+const DEFAULT_PASS = 'Tanourko2026';
+
+async function settingsGet(key){
+  try{
+    const { data, error } = await supabase.from('settings').select('value').eq('key', key).maybeSingle();
+    if(error || !data) return null;
+    return data.value;
+  }catch(e){ return null; }
+}
+async function settingsSet(key, value){
+  try{ await supabase.from('settings').upsert({ key, value }); return true; }catch(e){ return false; }
+}
+function defaultItems(){
+  return ['حلى مجاني','مشروب مجاني','خبز إضافي مجاني','سلطة مجانية','خصم 20% على الفاتورة القادمة','وجبة إضافية مجانية بزيارتك القادمة'];
+}
+
+let state = {
+  loggedIn: false, pass: '',
+  adminPass: null,
+  items: [], newItem: '',
+  logs: [],
+  tab: 'requests',
+  loading: true, message: null
+};
+
+async function init(){
+  let adminPass = await settingsGet(PASS_KEY);
+  if(!adminPass){ adminPass = DEFAULT_PASS; await settingsSet(PASS_KEY, adminPass); }
+  state.adminPass = adminPass;
+
+  let items = await settingsGet(ITEMS_KEY);
+  if(!items || !Array.isArray(items) || items.length===0){
+    items = defaultItems();
+    await settingsSet(ITEMS_KEY, items);
+  }
+  state.items = items;
+  state.loading = false;
+  render();
+}
+
+async function loadLogs(){
+  try{
+    const { data, error } = await supabase.from('logs').select('*').eq('type','coupon').order('created_at', { ascending:false }).limit(500);
+    state.logs = (!error && data) ? data : [];
+  }catch(e){ state.logs = []; }
+  render();
+}
+
+async function addItem(){
+  const v = state.newItem.trim();
+  if(!v) return;
+  state.items.push(v);
+  state.newItem = '';
+  await settingsSet(ITEMS_KEY, state.items);
+  state.message = { type:'success', text:'تمت إضافة الصنف' };
+  render();
+}
+async function removeItem(idx){
+  if(!confirm('حذف هذا الصنف من القائمة؟')) return;
+  state.items.splice(idx,1);
+  await settingsSet(ITEMS_KEY, state.items);
+  render();
+}
+
+function messageBox(){
+  if(!state.message) return '';
+  const cls = state.message.type === 'error' ? 'msg-error' : 'msg-success';
+  return `<div class="msg ${cls}">${state.message.text}</div>`;
+}
+
+function App(){
+  const app = document.getElementById('app');
+  app.dataset.rendered = '1';
+  if(state.loading){
+    app.innerHTML = '<div style="text-align:center;padding:60px 0;">جارِ التحميل...</div>';
+    return;
+  }
+
+  if(!state.loggedIn){
+    app.innerHTML = `
+      <div class="center-screen">
+        <h1>إدارة كوبونات إرضاء الزبون</h1>
+        <p class="sub">مطعم ومطبخ تنوركو</p>
+        ${messageBox()}
+        <label style="display:block;margin-bottom:6px;color:var(--muted);font-size:13px;">كلمة السر</label>
+        <input type="password" id="pass-input" placeholder="••••••••">
+        <button class="btn-primary" id="login-btn">دخول</button>
+      </div>
+    `;
+    document.getElementById('login-btn').onclick = ()=>{
+      const val = document.getElementById('pass-input').value;
+      if(val === state.adminPass){ state.loggedIn = true; state.message = null; render(); loadLogs(); }
+      else { state.message = { type:'error', text:'كلمة السر غير صحيحة' }; render(); }
+    };
+    return;
+  }
+
+  app.innerHTML = `
+    <h1>إدارة كوبونات إرضاء الزبون</h1>
+    <p class="sub">مطعم ومطبخ تنوركو</p>
+    <div style="text-align:left;margin-bottom:10px;"><button class="logout" id="logout-btn">خروج</button></div>
+    ${messageBox()}
+    <div class="tabs">
+      <div class="tab ${state.tab==='requests'?'active':''}" data-tab="requests">الطلبات المسجلة</div>
+      <div class="tab ${state.tab==='items'?'active':''}" data-tab="items">إدارة الأصناف</div>
+    </div>
+    <div id="tab-content"></div>
+  `;
+  document.getElementById('logout-btn').onclick = ()=>{ state.loggedIn = false; state.pass=''; render(); };
+  app.querySelectorAll('.tab').forEach(tb=>{
+    tb.onclick = ()=>{ state.tab = tb.dataset.tab; state.message=null; render(); };
+  });
+
+  const content = document.getElementById('tab-content');
+  if(state.tab === 'requests'){
+    const card = document.createElement('div');
+    card.className = 'card';
+    if(state.logs.length === 0){
+      card.innerHTML = `<div class="empty">لا توجد طلبات مسجلة بعد</div>`;
+    } else {
+      card.innerHTML = state.logs.map(l=>`
+        <div class="log-entry">
+          <b>${l.user_name}</b> — ${l.item_name}
+          <div class="log-meta">📞 ${l.item_name_en || '-'} &nbsp;|&nbsp; كود: ${l.item_id} &nbsp;|&nbsp; ${l.time_label}</div>
+        </div>
+      `).join('');
+    }
+    content.appendChild(card);
+  } else {
+    const addCard = document.createElement('div');
+    addCard.className = 'card';
+    addCard.innerHTML = `
+      <label style="display:block;margin-bottom:6px;color:var(--muted);font-size:13px;">إضافة صنف جديد</label>
+      <input type="text" id="new-item-input" placeholder="مثال: قهوة عربية مجانية" value="${state.newItem.replace(/"/g,'&quot;')}">
+      <button class="btn-primary" id="add-item-btn">إضافة</button>
+    `;
+    content.appendChild(addCard);
+    document.getElementById('new-item-input').oninput = (e)=>{ state.newItem = e.target.value; };
+    document.getElementById('add-item-btn').onclick = addItem;
+
+    const listCard = document.createElement('div');
+    listCard.className = 'card';
+    listCard.innerHTML = `<h2 style="font-size:15px;margin:0 0 10px;color:var(--accent-2);">الأصناف الحالية</h2>`;
+    state.items.forEach((item, idx)=>{
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `<div>${item}</div>`;
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-ghost';
+      delBtn.textContent = 'حذف';
+      delBtn.style.color = 'var(--danger)';
+      delBtn.onclick = ()=> removeItem(idx);
+      row.appendChild(delBtn);
+      listCard.appendChild(row);
+    });
+    content.appendChild(listCard);
+  }
+}
+
+function render(){ App(); }
+
+init().catch(function(err){ showFatalError('Init failed: ' + (err && err.message ? err.message : err)); });
+</script>
+</body>
+</html>
